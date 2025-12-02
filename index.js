@@ -1,0 +1,67 @@
+const express = require("express");
+const cors = require("cors");
+
+const app = express();
+const PORT = Number(process.env.PORT) || 3000;
+
+// Middlewares básicos
+app.use(
+  cors({
+    origin: ["https://iot-elevator-control-dashboard.vercel.app"],
+  }),
+);
+app.use(express.json());
+
+// Utilitário para obter a hora atual formatada como HH:MM:SS.
+const getCurrentTimeLabel = () =>
+  new Date().toLocaleTimeString("pt-BR", { hour12: false });
+
+// Endpoint principal que simula o recebimento dos dados de sensores IoT.
+app.post("/sensores", (req, res) => {
+  const { presenca, obstrucao } = req.body ?? {};
+  const presenceValue = Number(presenca);
+  const obstructionValue = Number(obstrucao);
+
+  if (![0, 1].includes(presenceValue) || ![0, 1].includes(obstructionValue)) {
+    return res.status(400).json({
+      mensagem:
+        "Dados inválidos. Envie presenca e obstrucao como 0 ou 1 (numéricos).",
+    });
+  }
+
+  // Lógica do atuador da porta conforme requisitos.
+  const isDoorOpen =
+    presenceValue === 0 || obstructionValue === 1
+      ? 1
+      : presenceValue === 1 && obstructionValue === 0
+        ? 0
+        : 1;
+
+  const doorLabel = isDoorOpen === 1 ? "Porta Aberta" : "Porta Fechada";
+  const color = isDoorOpen === 1 ? "\x1b[32m" : "\x1b[31m";
+  const resetColor = "\x1b[0m";
+
+  console.log(
+    `[${getCurrentTimeLabel()}] Sensor de presença: ${presenceValue} | Sensor de obstrução: ${obstructionValue} | ${color}${doorLabel}${resetColor}`,
+  );
+  console.log("-------------------------------");
+
+  return res.json({
+    porta: isDoorOpen,
+    mensagem: "Leitura processada com sucesso",
+  });
+});
+
+// Endpoint de health check para monitoramento básico.
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: getCurrentTimeLabel(),
+    uptime: process.uptime(),
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor IoT rodando em http://localhost:${PORT} 🚀`);
+});
+
